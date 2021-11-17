@@ -1,0 +1,124 @@
+FIRST ROBOTICS PROJECT 2021
+
+Student - Alessandro De Luca
+Person code - 10676114
+
+1. DESCRIPTION OF FILES
+
+estimator.cpp : contains the "estimator" node used to calculate the apparent baseline and gear ration from the given odometry (/scout_odom). To estimate this values the node calculates a mean from the data gathered during the execution of a bag.
+After all three bags were analyzed and the estimation of the gear ratio and apparent baseline were available, another mean 
+from the data gathered was used to obtain the final values. Each bag was run three times. The final vaues are:
+
+		GR = 38.51601667
+		2Yo = 1.011065778
+
+
+Trasform.cpp : contains the node used to calculate the static transform functions from world to odom used to check if the calulated odometry and the ground truth pose were similar. This node takes the Yaw from both the /gt_pose and /scout_odom then obtains the difference in orientation as alpha = gt_pose.Yaw - scout_odom.Yaw. To get the transformation of x and y the computation is:
+
+		x_transform = gt_pose.x - scout_odom.x * cos(alpha) + scout_odom.y * sin(alpha)
+		y_transform = gt_pose.y - scout_odom.x + sin(alpha) - scout_odom.y * cos(alpha)
+		z_transform = gt_pose.z
+		quaternion_transform = setRPY(0, 0, alpha);
+		(all formulas are written in pseudo-code)
+
+The robot is always at ground level in the odometry hence why in the world frame it has to be at gt_pose.z height, for the quaternion the two reference frames have the xy plane parallel to eachother and are only rotated with respect to one another. The transformation functions obtained were valid only for the second and third bag, whereas for the first the quaternion had to be tweaked in order to go from about +64 degrees to -64 degrees, this was made by changing the sign of the quaternion.z value. This problem was due to the fact that the initial gt_pose was not the correct one.
+
+
+DifferentialDrive.cpp : contains the node that executes the tasks given in the project. It calculates the linear and angular velocity from the motors velocity, the gear ratio and the baseline estimaed. This is possible thanks to a message filter that gets the velocity of all the motors at the same time. To compute the odometry the tsandard formulas were used, the pose parameters were available in the beginning, the velocities could be obtaind from the motors speed and the difference in time was calculated as current_ROS_time - time_in_header_stamp_of_message.
+The starting pose of the robot is given by 3 parameters: x, y, and theta. 
+A dynamically reconfigurable parameter called integration_type states what integration method needs to be used if "Euler" 
+(integration_type = 0 and default value) or "Runge-Kutta" (integartion_type = 1);
+Once the odometry is calculated the methods  PublishVelocity, PublishOdometry, PublishOdometryTF, PublishOdometryCustom are called.
+
+		PublishVelocity publishes linear and agular velocity as geometry_msgs/TwistStamped in /my_velocity topic
+		PublishOdometry publishes the computed odometry as nav_msgs/Odometry in /my_odometry topic
+		PublishOdometryTF publishes the tf between the odom frame and the base_link frame
+		PublishOdometryCustom publishes the computed odometry and integration method as CustomOdometry in /my_custom_odometry
+
+This node also has two services set_pose which takes three arguements x, y and theta and sets the current pose as the arguememts, and reset_pose which sets x, y and theta as 0.
+
+
+ResetPose.srv : reset_pose service structure, considering that it takes no arguements and doesn't return anything it's just 
+		
+		---
+
+
+SetPose.srv : set_pose service structure, it has three float64 named x, y, theta and a dashed line. This service takes three arguements and doesn't return anything 
+		
+		float64 x
+		float64 y
+		float64 theta
+		---
+
+
+
+CustomOdometry.msg : structure of the custom message to publish both the odometry and the integration method, this message has two attributes, the first one is nav_msgs/Odometry odom to hold the odometry and string method to hold the integration type.
+
+		nav_msgs/Odometry odom
+		string method
+
+
+parameters.cfg : configuration file that holds the definition of the dynamically reconfigurable parameter used in the DifferentialDrive node, there is an enumeration [Euler, Runge_Kutta] used by the integration_type parameter to set its possible value.
+
+
+FirstBag.launch : launch file for the first bag, launches the DifferentialDrive node, has the starting pose for Bag1 in the parameters x, y and theta, and starts the static_transform_publisher for Bag1
+
+
+SecondBag.launch : launch file for the second bag, launches the DifferentialDrive node, has the starting pose for Bag2 in the parameters x, y and theta, and starts the static_transform_publisher for Bag2
+
+
+ThirdBag.launch : launch file for the third bag, launches the DifferentialDrive node, has the starting pose for Bag3 in the parameters x, y and theta, and starts the static_transform_publisher for Bag3
+
+
+
+2. ROS PARAMETERS
+
+x = startin position of the robot on the x axis
+
+y = starting position of the robot on the y axis
+
+theta = starting orientation of the robot (Yaw)
+
+integration_type = defines which integration method to use, possible values are [Euler, Runge_Kutta], Euler is the default value
+
+
+
+3. TF TREE
+
+(WORLD --static_transform_publisher-->) ODOM --transform_broadcaster--> BASE_LINK
+
+The first part is only available if the launch files provided are used or the stati_transform_publisher is called in the command line. A pdf with the tree structure is included in the archive submitted.
+
+
+
+4. HOW TO START THE NODES
+
+For the estimator node, the command line input is "rosrun robotics_hw1 estimator"
+
+For the Transform node, the command line input is "rosrun robotics_hw1 Transform"
+
+For the DifferentialDrive node the command line input is "rosrun robotics_hw1 DifferentialDrive"
+
+Otherwise the launch file provided can be used, the command line inputs are:
+		"roslaunch project FirstBag.launch" for Bag1
+		"roslaunch project SecondBag.launch" for Bag2
+		"roslaunch project ThirdBag.launch" for Bag3
+
+The launch files do not launch the bags as well, thus one could use a launch file that is not designed for the bag that is being played, this will start the node correctly but obviously the computation will be wrong considering that all three bags have different starting positions and different transformation from WORLD to ODOM.
+
+The estimator node will print to screen the estimation of the gear ratio, apparent baseline, the calculated velocity (before being divided by the gear ratio) and the actual velocity given by /scout_odometry
+
+The Transform node will print to screen the x, y and z values to be put in the static_transform_function and publish in /transformation_quaternion the quaternion to be put in the static_transform_function. This node needs to be used only in the first second of the bag, as soon as the gt_pose or the scout_odom change the values obtained may not be the correct ones. This is due to the fact that not always the gt_pose is available.
+
+The DifferentialDrive node will publish on /my_odometry /my_velocity /my_custom_odometry and will publish the tf, to change the parameters the command used is :
+		"rosparam set x desired_value"
+		"rosparam set y desired_value"
+		"rosparam set theta desired_value"
+		"rosrun dynamic_reconfigure dynparam set DifferentialDrive integration_type Euler" (or 0 in place of Euler)
+		"rosrun dynamic_reconfigure dynparam set DifferentialDrive integration_type Runge_Kutta" (or 1 in place of Runge_Kutta)
+To use the services the commad is:
+		"rosservice call  reset_pose"
+		"rosservice call desired_x desired_y desired_theta"
+		or
+		"rosservice call set_pose '{x : desired_x,y : desired_y,theta : desired_theta}'"
+

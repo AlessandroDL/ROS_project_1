@@ -1,0 +1,30 @@
+<launch>
+
+	<param name="x" value="-2.81132697617"/>
+	<param name="y" value="0.784711979093"/>
+	<param name="theta" value="3.053794"/>
+
+	<node pkg="project" name="DifferentialDrive" type="DifferentialDrive" output="screen" />
+
+	<node pkg="tf" type="static_transform_publisher" name="world_to_odom" args="0.395904 -2.339546 0.577919 0.0 0.0 -0.475696193746 0.879609647091 world odom 100" />
+	
+
+<!--SECOND BAG:
+	<param name="x" value="-2.81132697617"/>
+	<param name="y" value="0.784711979093"/>
+	<param name="theta" value="3.053794"/>
+
+
+	x = 0.395904
+	y = -2.339546
+	z = 0.577919
+	qx: 0.0
+	qy: 0.0
+	qz: -0.475696193746
+	qw: 0.879609647091
+
+	<node pkg="tf" type="static_transform_publisher" name="world_to_odom" args="0.395904 -2.339546 0.577919 0.0 0.0 -0.475696193746 0.879609647091 world odom 100" />
+
+-->
+
+</launch>
